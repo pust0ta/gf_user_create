@@ -59,11 +59,17 @@ function user_create_form_validate($form, $form_state) {
 
 function user_create_form_submit($form, $form_state) {
   $phone = $form_state['values']['phone'];
+  $manager_user = user_load($GLOBALS["user"]->uid);
+  $manager_nid = $manager_user->field_manager["und"][0]["target_id"];
+
+
   if (empty($form_state['values']['email'])) {
     $email = 'customer+' . $form_state['values']['phone'] . '@giorgio-ferretti.it';
   } else {
     $email = $form_state['values']['email'];
   }
+
+
   $new_customer = array(
     'name'	=> $form_state['values']['phone'],
     'pass'	=> $form_state['values']['phone'], // note: do not md5 the password
@@ -76,6 +82,7 @@ function user_create_form_submit($form, $form_state) {
     'field_macroregion'=>["und"=>[0=>["value"=>'Russia']]],
     'field_country_name'=>["und"=>[0=>["value"=>'RU']]],
     'field_language_pref'=>["und"=>[0=>["value"=>'ru']]],
+    'field_manager'=>["und"=>[0=>["target_id"=>$manager_nid]]],
     'status' => 1,
     'init' => $email,
     'roles' => array(
@@ -83,6 +90,7 @@ function user_create_form_submit($form, $form_state) {
       19 => 'Wholesale customer',
     ),
   );
+
 
   // The first parameter is null so a new user is created.
   $new_user = user_save(null, $new_customer);
