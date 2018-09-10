@@ -1,0 +1,92 @@
+<?php
+
+
+/**
+ * Implements hook_menu().
+ */
+function gf_user_create_menu() {
+  $items['gf-user/create'] = array(
+    'title' => t('Create account for new client'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => ['user_create_form'],
+    'access arguments' => array('gf user create'),
+  );
+
+  return $items;
+}
+
+
+/**
+ * Форма создания нового клиента.
+ */
+function user_create_form() {
+  $form = array();
+
+  $form['name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Name'),
+    '#placeholder' => t('Name of the Customer or Company name'),
+  );
+  $form['phone'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Phone'),
+    '#placeholder' => '9012345678',
+    /*'#prefix' => '+7',*/
+  );
+  $form['email'] = array(
+    '#type' => 'textfield',
+    '#title' => 'e-mail',
+    '#placeholder' => 'name@example.com',
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Create new account'),
+  );
+
+  return $form;
+}
+
+
+function user_create_form_validate($form, $form_state) {
+  if(empty($form_state['values']['email'])){
+    form_set_error('email', t('e-mail must be set'));
+  }
+  if(empty($form_state['values']['phone'])){
+    form_set_error('phone', t('Phone number must be set'));
+  }
+}
+
+
+function user_create_form_submit($form, $form_state) {
+
+  $new_customer = array(
+    'name'	=> $form_state['values']['name'],
+    'phone'	=> $form_state['values']['phone'],
+    'pass'	=> $form_state['values']['phone'], // note: do not md5 the password
+    'mail'	=> $form_state['values']['email'],
+    'status' => 1,
+    'init' => $form_state['values']['email'],
+    'roles' => array(
+      DRUPAL_AUTHENTICATED_RID => 'authenticated user',
+      19 => 'Wholesale customer',
+    ),
+  );
+
+  // The first parameter is null so a new user is created.
+  $new_user = user_save(null, $new_customer);
+  masquerade_switch_user($new_user->uid);
+  drupal_goto('shop/2764');
+}
+
+/**
+ * Implements hook_permission().
+ */
+function gf_user_create_permission() {
+  return [
+    'gf user create' => [
+      'title' => t('Create new customer'),
+      'description' => t('Create new wholesaler customer from simple form'),
+    ],
+  ];
+}

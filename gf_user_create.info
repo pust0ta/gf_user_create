@@ -1,0 +1,5 @@
+name = GF Create user
+description = A module for create user from extended form
+package = Giorgio Ferretti
+dependencies[] = masquerade
+core = 7.x
