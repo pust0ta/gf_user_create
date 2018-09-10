@@ -49,24 +49,35 @@ function user_create_form() {
 
 
 function user_create_form_validate($form, $form_state) {
-  if(empty($form_state['values']['email'])){
-    form_set_error('email', t('e-mail must be set'));
-  }
   if(empty($form_state['values']['phone'])){
     form_set_error('phone', t('Phone number must be set'));
-  }
+  } /*elseif ($form_state['values']['phone']){
+    form_set_error('phone', t('Phone number must be set'));
+  }*/
 }
 
 
 function user_create_form_submit($form, $form_state) {
-
+  $phone = $form_state['values']['phone'];
+  if (empty($form_state['values']['email'])) {
+    $email = 'customer+' . $form_state['values']['phone'] . '@giorgio-ferretti.it';
+  } else {
+    $email = $form_state['values']['email'];
+  }
   $new_customer = array(
-    'name'	=> $form_state['values']['name'],
-    'phone'	=> $form_state['values']['phone'],
+    'name'	=> $form_state['values']['phone'],
     'pass'	=> $form_state['values']['phone'], // note: do not md5 the password
-    'mail'	=> $form_state['values']['email'],
+    'mail'	=> $email,
+    'language' => 'ru',
+    'field_kompaniya'=>['und' => [0 => ['value' => $form_state['values']['name']]]],
+    'field_telefon' => ['und' => [0 => ['value' => $phone]]],
+    'timezone' => 'Europe/Moscow',
+    'field_firstname' => ['und'=>[0=>['value'=>$phone]]],
+    'field_macroregion'=>["und"=>[0=>["value"=>'Russia']]],
+    'field_country_name'=>["und"=>[0=>["value"=>'RU']]],
+    'field_language_pref'=>["und"=>[0=>["value"=>'ru']]],
     'status' => 1,
-    'init' => $form_state['values']['email'],
+    'init' => $email,
     'roles' => array(
       DRUPAL_AUTHENTICATED_RID => 'authenticated user',
       19 => 'Wholesale customer',
@@ -76,7 +87,7 @@ function user_create_form_submit($form, $form_state) {
   // The first parameter is null so a new user is created.
   $new_user = user_save(null, $new_customer);
   masquerade_switch_user($new_user->uid);
-  drupal_goto('shop/2764');
+  drupal_goto('shop');
 }
 
 /**
