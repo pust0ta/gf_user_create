@@ -111,7 +111,7 @@ function user_create_form_submit($form, $form_state) {
   // The first parameter is null so a new user is created.
   $new_user = user_save(null, $new_customer);
   masquerade_switch_user($new_user->uid);
-  drupal_goto('shop');
+  drupal_goto('gf_stock/region_switch/Russia', array('query'=>array('destination'=>'shop')));
 }
 
 /**
