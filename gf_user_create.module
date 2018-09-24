@@ -32,6 +32,7 @@ function user_create_form() {
     '#type' => 'textfield',
     '#title' => t('Phone'),
     '#placeholder' => '9012345678',
+    '#required' => TRUE,
     /*'#prefix' => '+7',*/
   );
   $form['email'] = array(
@@ -57,9 +58,9 @@ function user_create_form() {
 function user_create_form_validate($form, $form_state) {
   if(empty($form_state['values']['phone'])){
     form_set_error('phone', t('Phone number must be set'));
-  } /*elseif ($form_state['values']['phone']){
-    form_set_error('phone', t('Phone number must be set'));
-  }*/
+  } elseif (user_load_by_name(str_replace(array('(',')',' ','-', '+'),'',trim($form_state['values']['phone'])))) {
+    form_set_error('phone', t('User is already exists'));
+  }
 }
 
 /**
