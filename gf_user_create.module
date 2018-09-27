@@ -37,8 +37,12 @@ function user_create_form() {
   );
   $form['email'] = array(
     '#type' => 'textfield',
-    '#title' => 'e-mail',
+    '#title' => t('e-mail'),
     '#placeholder' => 'name@example.com',
+  );
+  $form['masq'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Masquerade to new user'),
   );
 
   $form['submit'] = array(
@@ -53,7 +57,7 @@ function user_create_form() {
  * @param $form
  * @param $form_state
  *
- * Валидация данных, ввнедённых в форму
+ * Валидация данных, введённых в форму
  */
 function user_create_form_validate($form, $form_state) {
   if(empty($form_state['values']['phone'])){
@@ -80,6 +84,7 @@ function user_create_form_submit($form, $form_state) {
   $phone_plain = str_replace(array('(',')',' ','-', '+'),'',$phone);
   $manager_user = user_load($GLOBALS["user"]->uid);
   $manager_nid = $manager_user->field_manager["und"][0]["target_id"];
+  $masq = $form_state['values']['masq'];
 
 
   if(empty($form_state['values']['name'])) {
@@ -122,8 +127,10 @@ function user_create_form_submit($form, $form_state) {
   $new_user = user_save(null, $new_customer);
   //$new_user->password = $new_customer['pass'];
   _user_mail_notify('register_admin_created', $new_user);
-  masquerade_switch_user($new_user->uid);
-  drupal_goto('gf_stock/region_switch/Russia', array('query'=>array('destination'=>'shop')));
+  if ($masq) {
+    masquerade_switch_user($new_user->uid);
+    drupal_goto('gf_stock/region_switch/Russia', array('query'=>array('destination'=>'shop')));
+  }
 }
 
 /**
