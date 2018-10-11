@@ -1,5 +1,10 @@
 <?php
-
+define('manager_sadovod_rid', 18);
+define('klient_sadovod_rid', 19);
+define('torgovij_predstavitel_rid', 24);
+define('klient_tp_rid', 15);
+define('optovik_rid', 7);
+define('msk_ofis_rid', 20);
 
 /**
  * Implements hook_menu().
@@ -82,9 +87,16 @@ function user_create_form_submit($form, $form_state) {
   $phone = trim($form_state['values']['phone']);
   //очистка поля "телефон" от лишних символов, чтобы оно было пригодно для логина
   $phone_plain = str_replace(array('(',')',' ','-', '+'),'',$phone);
+  $kompaniya = trim($form_state['values']['name']);
   $manager_user = user_load($GLOBALS["user"]->uid);
   $manager_nid = $manager_user->field_manager["und"][0]["target_id"];
-  $masq = $form_state['values']['masq'];
+  $torgovij_predstavitel = user_has_role(torgovij_predstavitel_rid, $manager_nid);
+  $manager_sadovod = user_has_role(manager_sadovod_rid, $manager_nid);
+  $manager = user_has_role(manager_rid, $manager_nid);
+  $masq = false;
+  if ($manager_sadovod) {
+    $masq = $form_state['values']['masq'];
+  }
 
 
   if(empty($form_state['values']['name'])) {
@@ -101,26 +113,77 @@ function user_create_form_submit($form, $form_state) {
   }
 
 
-  $new_customer = array(
-    'name'	=> $phone_plain,
-    'pass'	=> $phone_plain, // note: do not md5 the password
-    'mail'	=> $email,
-    'language' => 'ru',
-    'field_kompaniya'=>['und' => [0 => ['value' => $form_state['values']['name']]]],
-    'field_telefon' => ['und' => [0 => ['value' => $phone]]],
-    'timezone' => 'Europe/Moscow',
-    'field_firstname' => ['und'=>[0=>['value'=>$name]]],
-    'field_macroregion'=>["und"=>[0=>["value"=>'Russia']]],
-    'field_country_name'=>["und"=>[0=>["value"=>'RU']]],
-    'field_language_pref'=>["und"=>[0=>["value"=>'ru']]],
-    'field_manager'=>["und"=>[0=>["target_id"=>$manager_nid]]],
-    'status' => 1,
-    'init' => $email,
-    'roles' => array(
-      DRUPAL_AUTHENTICATED_RID => 'authenticated user',
-      19 => 'Wholesale customer',
-    ),
-  );
+  if ($manager_sadovod) {
+    $new_customer = [
+      'name' => $phone_plain,
+      'pass' => $phone_plain, // note: do not md5 the password
+      'mail' => $email,
+      'language' => 'ru',
+      'field_kompaniya' => ['und' => [0 => ['value' => $form_state['values']['name']]]],
+      'field_telefon' => ['und' => [0 => ['value' => $phone]]],
+      'timezone' => 'Europe/Moscow',
+      'field_firstname' => ['und' => [0 => ['value' => $name]]],
+      'field_macroregion' => ["und" => [0 => ["value" => 'Russia']]],
+      'field_country_name' => ["und" => [0 => ["value" => 'RU']]],
+      'field_language_pref' => ["und" => [0 => ["value" => 'ru']]],
+      'field_manager' => ["und" => [0 => ["target_id" => $manager_nid]]],
+      'status' => 1,
+      'init' => $email,
+      'roles' => [
+        DRUPAL_AUTHENTICATED_RID => 'authenticated user',
+        klient_sadovod_rid => 'Wholesale customer',
+      ],
+    ];
+  } elseif ($torgovij_predstavitel) {
+    $new_customer = [
+      'name' => $phone_plain,
+      'pass' => $phone_plain, // note: do not md5 the password
+      'mail' => $email,
+      'language' => 'ru',
+      'field_kompaniya' => ['und' => [0 => ['value' => $form_state['values']['name']]]],
+      'field_telefon' => ['und' => [0 => ['value' => $phone]]],
+      'timezone' => 'Europe/Moscow',
+      'field_firstname' => ['und' => [0 => ['value' => $name]]],
+      'field_macroregion' => ["und" => [0 => ["value" => 'Russia']]],
+      'field_country_name' => ["und" => [0 => ["value" => 'RU']]],
+      'field_language_pref' => ["und" => [0 => ["value" => 'ru']]],
+      'field_manager' => ["und" => [0 => ["target_id" => $manager_nid]]],
+      'status' => 1,
+      'init' => $email,
+      'roles' => [
+        DRUPAL_AUTHENTICATED_RID => 'authenticated user',
+        klient_tp_rid => 'Отсрочка платежа',
+        optovik_rid => 'Wholesaler',
+      ],
+    ];
+  } elseif ($manager) {
+    if ($kompaniya) {
+      $name = $kompaniya;
+    } else {
+      $name = $phone_plain;
+    }
+    $new_customer = [
+      'name' => $name,
+      'pass' => $phone_plain, // note: do not md5 the password
+      'mail' => $email,
+      'language' => 'ru',
+      'field_kompaniya' => ['und' => [0 => ['value' => $form_state['values']['name']]]],
+      'field_telefon' => ['und' => [0 => ['value' => $phone]]],
+      'timezone' => 'Europe/Moscow',
+      'field_firstname' => ['und' => [0 => ['value' => $name]]],
+      'field_macroregion' => ["und" => [0 => ["value" => 'Russia']]],
+      'field_country_name' => ["und" => [0 => ["value" => 'RU']]],
+      'field_language_pref' => ["und" => [0 => ["value" => 'ru']]],
+      'field_manager' => ["und" => [0 => ["target_id" => $manager_nid]]],
+      'status' => 1,
+      'init' => $email,
+      'roles' => [
+        DRUPAL_AUTHENTICATED_RID => 'authenticated user',
+        optovik_rid => 'Wholesaler',
+        msk_ofis_rid => 'Московский офис',
+      ],
+    ];
+  }
 
 
   // The first parameter is null so a new user is created.
