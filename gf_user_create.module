@@ -53,6 +53,10 @@ function user_create_form() {
     '#type' => 'textfield',
     '#title' => t('Address'),
   );
+  $form['vat_id'] = array(
+    '#type' => 'textfield',
+    '#title' => t('VAT ID'),
+  );
   $form['cargo_company'] = array(
     '#type' => 'textfield',
     '#title' => t('Cargo company'),
@@ -105,6 +109,7 @@ function user_create_form_submit($form, $form_state) {
   $city = $form_state['values']['city'];
   $address = $form_state['values']['address'];
   $cargo_company = $form_state['values']['cargo_company'];
+  $vat_id = $form_state['values']['vat_id'];
   global $user;
   $manager_user = user_load($user->uid);
   $manager_nid = $manager_user->field_manager["und"][0]["target_id"];
@@ -163,7 +168,7 @@ function user_create_form_submit($form, $form_state) {
       DRUPAL_AUTHENTICATED_RID => 'authenticated user',
       klient_tp_rid => 'Отсрочка платежа',
       optovik_rid => 'Wholesaler',
-      ];
+      ]si ;
   } elseif ($manager) {
     if ($kompaniya) {
       $name = $kompaniya;
@@ -182,7 +187,7 @@ function user_create_form_submit($form, $form_state) {
 
   // The first parameter is null so a new user is created.
   $new_user = user_save(null, $new_customer);
-  //$new_user->password = $new_customer['pass'];
+  $new_user->password = $new_customer['pass'];
   _user_mail_notify('register_admin_created', $new_user);
   if ($masq) {
     masquerade_switch_user($new_user->uid);
