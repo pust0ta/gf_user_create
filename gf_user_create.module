@@ -6,6 +6,7 @@ define('klient_tp_rid', 15);
 define('optovik_rid', 7);
 define('msk_ofis_rid', 20);
 define('manager_rid', 5);
+define('interesujushijsya_rid', 4);
 
 /**
  * Implements hook_menu().
@@ -167,7 +168,8 @@ function user_create_form_submit($form, $form_state) {
     $new_customer['roles'] = [
       DRUPAL_AUTHENTICATED_RID => 'authenticated user',
       klient_tp_rid => 'Отсрочка платежа',
-      optovik_rid => 'Wholesaler',
+      //optovik_rid => 'Wholesaler',
+      interesujushijsya_rid => 'Интресующийся',
       ];
   } elseif ($manager) {
     if ($kompaniya) {
