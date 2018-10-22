@@ -35,6 +35,10 @@ function user_create_form() {
     '#title' => t('Name'),
     '#placeholder' => t('Name of the Customer or Company name'),
   );
+  $form['contact_person'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Contact Person'),
+  );
   $form['phone'] = array(
     '#type' => 'textfield',
     '#title' => t('Phone'),
@@ -45,6 +49,10 @@ function user_create_form() {
     '#type' => 'textfield',
     '#title' => t('e-mail'),
     '#placeholder' => 'name@example.com',
+  );
+  $form['region'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Region'),
   );
   $form['city'] = array(
     '#type' => 'textfield',
@@ -107,6 +115,8 @@ function user_create_form_submit($form, $form_state) {
   //очистка поля "телефон" от лишних символов, чтобы оно было пригодно для логина
   $phone_plain = str_replace(array('(',')',' ','-', '+'),'',$phone);
   $kompaniya = trim($form_state['values']['name']);
+  $contact_person = $form_state['values']['contact_person'];
+  $region = $form_state['values']['region'];
   $city = $form_state['values']['city'];
   $address = $form_state['values']['address'];
   $cargo_company = $form_state['values']['cargo_company'];
@@ -140,6 +150,8 @@ function user_create_form_submit($form, $form_state) {
     'mail' => $email,
     'language' => 'ru',
     'field_kompaniya' => ['und' => [0 => ['value' => $form_state['values']['name']]]],
+    'field_contact_person' => ['und' => [0 => ['value' => $contact_person]]],
+    'field_region' => ['und' => [0 => ['value' => $region]]],
     'field_telefon' => ['und' => [0 => ['value' => $phone]]],
     'timezone' => 'Europe/Moscow',
     'field_firstname' => ['und' => [0 => ['value' => $name]]],
