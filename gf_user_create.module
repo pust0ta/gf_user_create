@@ -168,7 +168,7 @@ function user_create_form_submit($form, $form_state) {
       DRUPAL_AUTHENTICATED_RID => 'authenticated user',
       klient_tp_rid => 'Отсрочка платежа',
       optovik_rid => 'Wholesaler',
-      ]si ;
+      ];
   } elseif ($manager) {
     if ($kompaniya) {
       $name = $kompaniya;
