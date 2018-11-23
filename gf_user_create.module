@@ -1,12 +1,14 @@
 <?php
-define('manager_sadovod_rid', 18);
-define('klient_sadovod_rid', 19);
-define('torgovij_predstavitel_rid', 24);
-define('klient_tp_rid', 15);
-define('optovik_rid', 7);
-define('msk_ofis_rid', 20);
-define('manager_rid', 5);
-define('interesujushijsya_rid', 4);
+
+define('GF_ADMIN_RID', 3);
+define('GF_MANAGER_SADOVOD_RID', 18);
+define('GF_KLIENT_SADOVOD_RID', 19);
+define('GF_TORGOVIJ_PREDSTAVITEL_RID', 24);
+define('GF_KLIENT_TP_RID', 15);
+define('GF_OPTOVIK_RID', 7);
+define('GF_MSK_OFIS_RID', 20);
+define('GF_MANAGER_RID', 5);
+define('GF_INTERESUJUSHIJSYA_RID', 4);
 
 /**
  * Implements hook_menu().
@@ -16,7 +18,7 @@ function gf_user_create_menu() {
   $items['gf-user/create'] = array(
     'title' => t('Create account for new client'),
     'page callback' => 'drupal_get_form',
-    'page arguments' => ['user_create_form'],
+    'page arguments' => ['gf_user_create_form'],
     'access arguments' => array('gf user create'),
   );
 
@@ -27,7 +29,17 @@ function gf_user_create_menu() {
 /**
  * Форма создания нового клиента.
  */
-function user_create_form() {
+function gf_user_create_form($form, &$form_state) {
+  if (isset($form_state['success'])) {
+    unset($form_state['success']);
+    $form['success'] = array(
+      '#markup' => l(t('Add more'), current_path(), array('attributes' => array(
+        'class' => array('btn', 'btn-fw', 'btn-primary')))),
+    );
+
+    return $form;
+  }
+
   $form = array();
 
   $form['name'] = array(
@@ -42,13 +54,14 @@ function user_create_form() {
   $form['phone'] = array(
     '#type' => 'textfield',
     '#title' => t('Phone'),
-    '#placeholder' => '9012345678',
+    '#placeholder' => '8 (901) 234-56-78',
     '#required' => TRUE,
   );
   $form['email'] = array(
     '#type' => 'textfield',
     '#title' => t('e-mail'),
     '#placeholder' => 'name@example.com',
+    '#required' => TRUE,
   );
   $form['region'] = array(
     '#type' => 'textfield',
@@ -71,22 +84,21 @@ function user_create_form() {
     '#title' => t('Cargo company'),
   );
 
-  if (user_has_role(manager_rid) or user_has_role(3)) {
-    $form['role'] = array(
-      '#type' => 'select',
+  if ($roles = gf_user_create_get_roles()) {
+    $form['roles'] = array(
+      '#type' => 'checkboxes',
       '#title' => t('Assign Role'),
-      '#options' => array(
-        interesujushijsya_rid => 'Интересующийся',
-        optovik_rid => 'Оптовик',
-      ),
-      '#default_value' => interesujushijsya_rid,
+      '#options' => $roles,
     );
   }
 
-  $form['masq'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Masquerade to new user'),
-  );
+
+  if (user_access('masquerade as user')) {
+    $form['masq'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Masquerade to new user'),
+    );
+  }
 
   $form['submit'] = array(
     '#type' => 'submit',
@@ -102,15 +114,29 @@ function user_create_form() {
  *
  * Валидация данных, введённых в форму
  */
-function user_create_form_validate($form, $form_state) {
-  if(empty($form_state['values']['phone'])){
-    form_set_error('phone', t('Phone number must be set'));
-  } elseif (user_has_role(manager_sadovod_rid) and user_load_by_name(str_replace(array('(',')',' ','-', '+'),'',trim($form_state['values']['phone'])))) {
+function gf_user_create_form_validate($form, $form_state) {
+  if (!valid_email_address($form_state['values']['email'])) {
+    form_set_error('email', t('Not a valid email address'));
+  }
+
+  $phone = str_replace(array('(',')',' ','-', '+'),'', trim($form_state['values']['phone']));
+  // $phone_check = preg_match('/^8 \(\d{3}\) \d{3}-\d{2}-\d{2}$/', $phone);
+  $phone_check = preg_match('/^8\d{10}$/', $phone);
+  if (!$phone_check) {
+    form_set_error('phone', t('Phone number is wrong. Ex: 8 (123) 456-78-99 or 81234567899'));
+  }
+  elseif(user_load_by_name($phone)) {
     form_set_error('phone', t('Phone number is already used'));
-  } elseif (!user_has_role(manager_sadovod_rid) and user_load_by_name(trim($form_state['values']['name']))) {
-    form_set_error('name', t('User is already exist'));
-  } elseif ($form_state['values']['email'] != '' and user_load_by_mail($form_state['values']['email'])) {
-    form_set_error('email', t('User is already exist'));
+  } 
+
+  if($name = trim($form_state['values']['name'])) {
+    if (user_load_by_name($name)) {
+      form_set_error('name', t('User with this name already exist'));
+    } 
+  }
+
+  if (user_load_by_mail($form_state['values']['email'])) {
+    form_set_error('email', t('User with this email already exists.'));
   }
 }
 
@@ -125,110 +151,96 @@ function user_create_form_validate($form, $form_state) {
  * 2. переключение на этого пользователя средствами masquerade
  * 3. переадресация на страницу каталога товаров
  */
-function user_create_form_submit($form, $form_state) {
-  $phone = trim($form_state['values']['phone']);
-  //очистка поля "телефон" от лишних символов, чтобы оно было пригодно для логина
-  $phone_plain = str_replace(array('(',')',' ','-', '+'),'',$phone);
-  $kompaniya = trim($form_state['values']['name']);
-  $contact_person = $form_state['values']['contact_person'];
-  $region = $form_state['values']['region'];
-  $city = $form_state['values']['city'];
-  $address = $form_state['values']['address'];
-  $cargo_company = $form_state['values']['cargo_company'];
-  $vat_id = $form_state['values']['vat_id'];
+function gf_user_create_form_submit($form, &$form_state) {
   global $user;
+
   $manager_user = user_load($user->uid);
-  $manager_nid = $manager_user->field_manager["und"][0]["target_id"];
-  $torgovij_predstavitel = user_has_role(torgovij_predstavitel_rid);
-  $manager_sadovod = user_has_role(manager_sadovod_rid);
-  $manager = user_has_role(manager_rid);
-  $masq = false;
-  if ($manager_sadovod) {
-    $masq = $form_state['values']['masq'];
-  }
+  $manager_nid = $manager_user->field_manager["und"][0]["target_id"] ?? FALSE;
 
 
-  if(empty($form_state['values']['name'])) {
-    $name = $phone;
-  } else {
-    $name = $form_state['values']['name'];
-  }
 
+  $values = $form_state['values'];
 
-  if (empty($form_state['values']['email'])) {
-    $email = 'customer+' . $form_state['values']['phone'] . '@giorgio-ferretti.it';
-  } else {
-    $email = $form_state['values']['email'];
-  }
+  //очистка поля "телефон" от лишних символов, чтобы оно было пригодно для логина
+  $phone = str_replace(array('(',')',' ','-', '+'),'', trim($values['phone']));
+  $contact_person = $values['contact_person'];
+  $region = $values['region'];
+  $city = $values['city'];
+  $address = $values['address'];
+  $cargo_company = $values['cargo_company'];
+  $vat_id = $values['vat_id'];
 
+  $name = $values['name'] ?: $phone;
+  $email = $values['email'] ?: 'customer+' . $phone . '@giorgio-ferretti.it';
+
+  $password = user_password(8);
   $new_customer = [
+    'pass' => $password,
     'mail' => $email,
     'language' => 'ru',
-    'field_kompaniya' => ['und' => [0 => ['value' => $form_state['values']['name']]]],
-    'field_contact_person' => ['und' => [0 => ['value' => $contact_person]]],
-    'field_region' => ['und' => [0 => ['value' => $region]]],
-    'field_telefon' => ['und' => [0 => ['value' => $phone]]],
+    'field_kompaniya' => [LANGUAGE_NONE => [0 => ['value' => $values['name']]]],
+    'field_contact_person' => [LANGUAGE_NONE => [0 => ['value' => $contact_person]]],
+    'field_region' => [LANGUAGE_NONE => [0 => ['value' => $region]]],
+    'field_telefon' => [LANGUAGE_NONE => [0 => ['value' => $phone]]],
     'timezone' => 'Europe/Moscow',
-    'field_firstname' => ['und' => [0 => ['value' => $name]]],
-    'field_gorod' => ['und' => [0 => ['value'=> $city]]],
-    'field_adres' => ['und' => [0 => ['value'=> $address]]],
-    'field_tk' => ['und' => [0 => ['value'=> $cargo_company]]],
-    'field_macroregion' => ["und" => [0 => ["value" => 'Russia']]],
-    'field_country_name' => ["und" => [0 => ["value" => 'RU']]],
-    'field_language_pref' => ["und" => [0 => ["value" => 'ru']]],
-    'field_manager' => ["und" => [0 => ["target_id" => $manager_nid]]],
+    'field_firstname' => [LANGUAGE_NONE => [0 => ['value' => $name]]],
+    'field_gorod' => [LANGUAGE_NONE => [0 => ['value'=> $city]]],
+    'field_adres' => [LANGUAGE_NONE => [0 => ['value'=> $address]]],
+    'field_tk' => [LANGUAGE_NONE => [0 => ['value'=> $cargo_company]]],
+    'field_macroregion' => [LANGUAGE_NONE => [0 => ["value" => 'Russia']]],
+    'field_country_name' => [LANGUAGE_NONE => [0 => ["value" => 'RU']]],
+    'field_language_pref' => [LANGUAGE_NONE => [0 => ["value" => 'ru']]],
     'status' => 1,
     'init' => $email,
   ];
 
-
-  if ($manager_sadovod) {
-    $new_customer['name'] = $phone_plain;
-    $new_customer['pass'] = $phone_plain; // note: do not md5 the password
-    $new_customer['roles'] = [
-      DRUPAL_AUTHENTICATED_RID => 'authenticated user',
-      klient_sadovod_rid => 'Wholesale-retail customer',
-      ];
-  } elseif ($torgovij_predstavitel) {
-    $new_customer['name'] = $phone_plain;
-    $new_customer['pass'] = $phone_plain; // note: do not md5 the password
-    $new_customer['roles'] = [
-      DRUPAL_AUTHENTICATED_RID => 'authenticated user',
-      klient_tp_rid => 'Отсрочка платежа',
-      //optovik_rid => 'Wholesaler',
-      interesujushijsya_rid => 'Интресующийся',
-      ];
-  } elseif ($manager) {
-    if ($kompaniya) {
-      $name = $kompaniya;
-    } else {
-      $name = $phone_plain;
-    }
-    $new_customer['name'] = $name;
-    $new_customer['pass'] = $phone_plain; // note: do not md5 the password
-    if ($form_state['values']['role'] == optovik_rid) {
-      $new_customer['roles'] = [
-        DRUPAL_AUTHENTICATED_RID => 'authenticated user',
-        optovik_rid => 'Wholesaler',
-        msk_ofis_rid => 'Московский офис',
-      ];
-    } elseif ($form_state['values']['role'] == interesujushijsya_rid) {
-      $new_customer['roles'] = [
-        DRUPAL_AUTHENTICATED_RID => 'authenticated user',
-        interesujushijsya_rid => 'Интересующийся',
-        msk_ofis_rid => 'Московский офис',
-      ];
-    }
+  if ($manager_nid) {
+    $new_customer['field_manager'][LANGUAGE_NONE][0]['target_id'] = $manager_nid;
   }
 
 
+  $site_roles = user_roles(TRUE);
+
+  if (user_has_role(GF_MANAGER_SADOVOD_RID)) {
+    $new_customer['roles'] = [
+      GF_KLIENT_SADOVOD_RID => $site_roles[GF_KLIENT_SADOVOD_RID],
+    ];
+  } 
+  elseif (user_has_role(GF_TORGOVIJ_PREDSTAVITEL_RID)) {
+    $new_customer['roles'] = [
+      GF_KLIENT_TP_RID => $site_roles[GF_KLIENT_TP_RID],
+      GF_INTERESUJUSHIJSYA_RID => $site_roles[GF_INTERESUJUSHIJSYA_RID],
+    ];
+  } 
+  else {
+    $new_customer['roles'] = $values['roles'];
+  }
+
+  // Если имени мы так и не получили - используем
+  // в этом качестве почту.
+  $new_customer['name'] = $new_customer['name'] ?: ($name ?: $values['email']);
+
   // The first parameter is null so a new user is created.
   $new_user = user_save(null, $new_customer);
-  $new_user->password = $new_customer['pass'];
-  _user_mail_notify('register_admin_created', $new_user);
-  if ($masq) {
-    masquerade_switch_user($new_user->uid);
-    drupal_goto('gf_stock/region_switch/Russia', array('query'=>array('destination'=>'shop')));
+  $new_user->password = $password;
+
+  $mail_status = drupal_mail('user', 'register_admin_created', $email, NULL, array('account' => $new_user), 
+  variable_get('site_mail', 'info@giorgio-ferretti.it'));
+
+
+  if ($new_user && $mail_status) {
+    if (isset($values['masq']) && $values['masq']) {
+      masquerade_switch_user($new_user->uid);
+      drupal_goto('gf_stock/region_switch/Russia', array('query'=>array('destination'=>'shop')));
+    }
+    else {
+      drupal_set_message(t('New account created successfully'));
+      $form_state['rebuild'] = TRUE;
+      $form_state['success'] = TRUE;
+    }
+  }
+  else {
+    drupal_set_message(t('An error occurred and processing did not complete.'), 'error');
   }
 }
 
@@ -244,3 +256,52 @@ function gf_user_create_permission() {
   ];
 }
 
+/**
+ *  * Implements hook_token_info().
+ *   */
+function gf_user_create_token_info() {
+  $info['tokens']['user']['password'] = array(
+    'name' => t('Password'),
+    'description' => t('The password by the user'),
+  );
+  return $info;
+}
+
+/**
+ * Implements hook_tokens().
+ */
+function gf_user_create_tokens($type, $tokens, array $data = array(), array $options = array()) {
+  $replacements = array();
+
+  if ($type == 'user' && !empty($data['user'])) {
+    $account = $data['user'];
+
+    foreach ($tokens as $name => $original) {
+      switch ($name) {
+      case 'password':
+        $replacements[$original] = $account->password;
+        break;
+      }
+    }
+  }
+
+  return $replacements;
+}
+
+/**
+ * Получаем роли для выбора в форме.
+ *
+ */
+function gf_user_create_get_roles() {
+  $site_roles = user_roles(TRUE);
+  $roles = [];
+  if (user_has_role(GF_MANAGER_RID) or user_has_role(GF_ADMIN_RID)) {
+    $roles = [
+      GF_INTERESUJUSHIJSYA_RID => $site_roles[GF_INTERESUJUSHIJSYA_RID],
+      GF_OPTOVIK_RID => $site_roles[GF_OPTOVIK_RID],
+      GF_MSK_OFIS_RID => $site_roles[GF_MSK_OFIS_RID],
+    ];
+  }
+
+  return $roles;
+}
